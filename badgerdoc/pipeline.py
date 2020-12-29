@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -25,6 +26,30 @@ from .utils import has_image_extension
 
 logger = logging.getLogger(__name__)
 
+SINGLE_MODEL_FILE = "epoch_36_mmd_v2.pth"
+FULL_MODEL_FILE = "epoch_41_acc_94_mmd_v2.pth"
+MODEL_CONFIG = "cascadetabnet_config.py"
+
+
+def paddler_dir():
+    base_dir = os.getenv("BADGERDOC_PADDLEOCR_DATA_PATH", ".")
+    return str(Path(base_dir) / "paddle_detector" / "inference")
+
+
+def single_model_file():
+    base_dir = os.getenv("BADGERDOC_MODELS_PATH", ".")
+    return str(Path(base_dir) / "models" / SINGLE_MODEL_FILE)
+
+
+def full_model_file():
+    base_dir = os.getenv("BADGERDOC_MODELS_PATH", ".")
+    return str(Path(base_dir) / "models" / FULL_MODEL_FILE)
+
+
+def model_config():
+    base_dir = os.getenv("BADGERDOC_MODELS_PATH", ".")
+    return str(Path(base_dir) / "models" / MODEL_CONFIG)
+
 
 def configure_logging():
     console_handler = logging.StreamHandler(stream=sys.stdout)
@@ -48,7 +73,7 @@ def single(pdf_path, output_path):
     text_path = extract_text_to_json(input_pdf, out_path)
     ocr_pages_in_path(images_path, out_path.joinpath(input_pdf.name))
     batch_(str(images_path.absolute()), str(out_path.joinpath(input_pdf.name).absolute()),
-           'models/epoch_36_mmd_v2.pth', 'models/cascadetabnet_config.py', DEFAULT_THRESHOLD, None)
+           single_model_file(), model_config(), DEFAULT_THRESHOLD, None)
     draw_(
         str(images_path.absolute()),
         str(out_path.joinpath(input_pdf.name).joinpath('marked').absolute()),
@@ -376,9 +401,15 @@ def full(pdf_path, output_path):
     out_path = Path(output_path)
     images_path = convert_pdf_to_images(input_pdf, out_path)
     poppler_pages = extract_text(input_pdf)
-    inference_result = inference_batch(str(images_path.absolute()), str(out_path.joinpath(input_pdf.name).absolute()),
-                                       'models/epoch_41_acc_94_mmd_v2.pth', 'models/cascadetabnet_config.py',
-                                       DEFAULT_THRESHOLD, None)
+    inference_result = inference_batch(
+        img_dir=str(images_path.absolute()),
+        out_dir=str(out_path.joinpath(input_pdf.name).absolute()),
+        model=full_model_file(),
+        config=model_config(),
+        threshold=DEFAULT_THRESHOLD,
+        limit=None,
+        paddler_dir=paddler_dir(),
+    )
     # TODO: Serialize to Json method
     doc = {
         'document': {
